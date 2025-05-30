@@ -8,7 +8,7 @@ import html
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-
+api_key = st.secrets["api_key"]
 youtube = build('youtube', 'v3', developerKey=api_key)
 
 
