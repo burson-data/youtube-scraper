@@ -12,7 +12,14 @@ api_key = st.secrets["api_key"]
 youtube = build('youtube', 'v3', developerKey=api_key)
 
 
-def scrape_youtube_search(query, max_total_results=500):
+def scrape_youtube_search(query, 
+                      max_total_results=500, 
+                      published_after=None,
+                      published_before=None,
+                      order=None,
+                      region_code=None
+                      ):
+
     youtube = build('youtube', 'v3', developerKey=api_key)
     max_results_per_page = 50
     all_results = []
@@ -22,13 +29,25 @@ def scrape_youtube_search(query, max_total_results=500):
 
     # Step 1: Collect video info and IDs
     while True:
-        request = youtube.search().list(
-            q=query,
-            part='snippet',
-            type='video',
-            maxResults=max_results_per_page,
-            pageToken=next_page_token
-        )
+        # Build params dict dynamically
+        params = {
+            "q": query,
+            "part": "snippet",
+            "type": "video",
+            "maxResults": max_results_per_page,
+        }
+        if next_page_token:
+            params["pageToken"] = next_page_token
+        if published_after:
+            params["publishedAfter"] = published_after
+        if published_before:
+            params["publishedBefore"] = published_before
+        if order:
+            params["order"] = order
+        if region_code:
+            params["regionCode"] = region_code
+
+        request = youtube.search().list(**params)
         response = request.execute()
 
         for item in response['items']:
@@ -104,33 +123,64 @@ with st.sidebar:
     )
 
 if menu == "Youtube Scraper":
-  st.title("YouTube Scraper")
-  st.markdown("Masukkan kata kunci pencarian untuk mengambil data video dari YouTube.")
+    st.title("🔴 YouTube Scraper")
+    st.markdown("Masukkan kata kunci pencarian untuk mengambil data video dari YouTube.")
+    st.markdown("Jumlah maksimal result adalah 500 video. Untuk lebih banyak result, bisa gunakan ")
 
-  with st.container(border=True):
-      query = st.text_area("Enter your search term", height=68)
-      run_scraper = False
-      if query.strip():
-          run_scraper = st.button("Jalankan")
+    with st.container(border=True):
+        query = st.text_area("Keyword pencarian video* (Required)", height=68)
+        
+        # Optional filters
+        col1, col2 = st.columns(2)
+        with col1:
+            published_after_date = st.date_input("Published After (start date)", value=None)
+        with col2:
+            published_before_date = st.date_input("Published Before (end date)", value=None)
 
-  if query.strip() and run_scraper:
-      with st.spinner("Mengambil data dari YouTube..."):
-          results_df = scrape_youtube_search(query)
-          st.dataframe(results_df)
+        order = st.selectbox(
+            "Order by",
+            ["", "date", "rating", "relevance", "title", "viewCount"],
+            format_func=lambda x: "Default" if x == "" else x.capitalize()
+        )
+        region_code = st.text_input("Region Code (e.g. US, ID)", "")
 
-          # Provide a download button
-          to_download = io.BytesIO()
-          results_df.to_excel(to_download, index=False)
-          to_download.seek(0)
+        run_scraper = False
+        if query.strip():
+            run_scraper = st.button("Jalankan")
 
-          st.download_button(
-              "📥 Download Excel",
-              data=to_download,
-              file_name="youtube_results.xlsx",
-              mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-          )
+    if query.strip() and run_scraper:
+        # Convert dates to ISO 8601 if selected
+        published_after = None
+        if published_after_date:
+            published_after = datetime.combine(published_after_date, datetime.min.time()).strftime("%Y-%m-%dT%H:%M:%SZ")
+        published_before = None
+        if published_before_date:
+            published_before = datetime.combine(published_before_date, datetime.max.time()).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-      st.success(f"✅ Selesai! {len(results_df)} video ditemukan dan dapat diunduh.")
+        # Call the scraper with optional filters
+        with st.spinner("Mengambil data dari YouTube..."):
+            results_df = scrape_youtube_search(
+                query,
+                published_after=published_after,
+                published_before=published_before,
+                order=order or None,
+                region_code=region_code or None
+            )
+            st.dataframe(results_df)
+
+            # Provide a download button
+            to_download = io.BytesIO()
+            results_df.to_excel(to_download, index=False)
+            to_download.seek(0)
+
+            st.download_button(
+                "📥 Download Excel",
+                data=to_download,
+                file_name="youtube_results.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+
+        st.success(f"✅ Selesai! {len(results_df)} video ditemukan dan dapat diunduh.")
 
 elif menu == "How to use":
     st.title("📖 How to Use")
