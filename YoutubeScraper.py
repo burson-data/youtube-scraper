@@ -79,7 +79,7 @@ def scrape_youtube_search(query,
             break
         time.sleep(0.1)
 
-    # Step 2: Batch fetch statistics (views)
+    # Step 2: Batch fetch statistics (views, likes comments)
     views_dict = {}
     for i in range(0, len(video_ids), 50):
         batch_ids = video_ids[i:i+50]
@@ -90,13 +90,26 @@ def scrape_youtube_search(query,
         stats_response = stats_request.execute()
         for item in stats_response['items']:
             vid = item['id']
-            views = item['statistics'].get('viewCount', 'N/A')
-            views_dict[vid] = views
+            statistics = item['statistics']
+
+            views = statistics.get('viewCount', 'N/A')
+            likes = statistics.get('likeCount', 'N/A')
+            comments = statistics.get('commentCount', 'N/A')
+
+            stats_dict[vid] = {
+            'Views': views,
+            'Likes': likes,
+            'Comments': comments
+            }
         time.sleep(0.1)
 
-    # Step 3: Add view counts to results
+    # Step 3: Add statistics to results
     for row in all_results:
-        row['Views'] = views_dict.get(row['Video ID'], 'N/A')
+        video_id = row['Video ID']
+        stats = stats_dict.get(video_id, {})
+        row['Views'] = stats.get('Views', 'N/A')
+        row['Likes'] = stats.get('Likes', 'N/A')
+        row['Comments'] = stats.get('Comments', 'N/A')
 
     return pd.DataFrame(all_results)
 
