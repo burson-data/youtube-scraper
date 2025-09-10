@@ -80,7 +80,7 @@ def scrape_youtube_search(query,
         time.sleep(0.1)
 
     # Step 2: Batch fetch statistics (views, likes comments)
-    views_dict = {}
+    stats_dict = {}
     for i in range(0, len(video_ids), 50):
         batch_ids = video_ids[i:i+50]
         stats_request = youtube.videos().list(
